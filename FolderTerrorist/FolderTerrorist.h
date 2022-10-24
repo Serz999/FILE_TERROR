@@ -29,8 +29,6 @@ public:
 
     void Start(std::string path);
 
-    void Stop();
-
     void SignalsCatching();
 private:
     static inline FolderTerrorist *p_instance;
