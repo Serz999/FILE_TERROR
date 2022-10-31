@@ -4,14 +4,12 @@
 
 FolderTerrorist::FolderTerrorist() {
     std::cout << "FolderTerrorist has been created!\n";
-    if (p_instance == nullptr) p_instance = this;
-    else throw std::runtime_error("Trying to create another instance of class:FolderTerrorist");
 }
 
-FolderTerrorist::~FolderTerrorist() {
-    std::cout << "FolderTerrorist has been destroyed!";
-    delete p_instance;
-}
+//FolderTerrorist::~FolderTerrorist() {
+//    std::cout << "FolderTerrorist has been destroyed!\n";
+//    delete p_instance;
+//}
 
 void FolderTerrorist::SetFolderName(const std::string &folder_name) {
     this->folder_name = folder_name;
@@ -31,31 +29,66 @@ std::vector<std::string> FolderTerrorist::GetFolderFiles() {
 }
 
 void FolderTerrorist::UpdateQueue() {
-    while (true) {
-        std::vector<std::string> folder_files = GetFolderFiles();
-        std::this_thread::sleep_for(std::chrono::seconds(5));
-        for (const auto &file:folder_files) {
-            if (std::find(files_queue.begin(), files_queue.end(), file) == files_queue.end() && !file.ends_with(".terror")) {
-                std::lock_guard<std::mutex> guard(mtx);
-                std::cout << "A new file has been added to the queue: "<< file << "\n";
-                files_queue.push_front(file);
+    if(border == -1) {
+        while (true) {
+            std::vector<std::string> folder_files = GetFolderFiles();
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            for (const auto &file: folder_files) {
+                if (std::find(files_queue.begin(), files_queue.end(), file) == files_queue.end() &&
+                    !file.ends_with(".terror")) {
+                    std::lock_guard<std::mutex> guard(mtx1);
+                    std::cout << "A new file has been added to the queue: " << file << "\n";
+                    files_queue.push_front(file);
+                }
             }
-       }
-   }
+        }
+    } else {
+        while (border > 0) {
+            std::vector<std::string> folder_files = GetFolderFiles();
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            for (const auto &file: folder_files) {
+                if (std::find(files_queue.begin(), files_queue.end(), file) == files_queue.end() &&
+                    !file.ends_with(".terror")) {
+                    std::lock_guard<std::mutex> guard(mtx1);
+                    std::cout << "A new file has been added to the queue: " << file << "\n";
+                    files_queue.push_front(file);
+                }
+            }
+            std::lock_guard<std::mutex> guard(mtx2);
+            if(border > 0) border--;
+        }
+    }
 }
 
 void FolderTerrorist::ReleaseQueue() {
     std::string filename;
-    while (true) {
-        {
-            std::lock_guard<std::mutex> guard(mtx);
-            if (!files_queue.empty()) {
-                filename = files_queue.back();
-                files_queue.pop_back();
+    if(border == -1) {
+        while (true) {
+            {
+                std::lock_guard<std::mutex> guard(mtx3);
+                if (!files_queue.empty()) {
+                    filename = files_queue.back();
+                    files_queue.pop_back();
+                }
+            }
+            if (std::filesystem::exists(std::filesystem::path(filename)) && is_regular_file(std::filesystem::path(filename))) {
+                FolderFileTerror(filename);
             }
         }
-        if (std::filesystem::exists(std::filesystem::path(filename)) && is_regular_file(std::filesystem::path(filename))) {
-            FolderFileTerror(filename);
+    } else {
+        while (border > 0) {
+            {
+                std::lock_guard<std::mutex> guard(mtx3);
+                if (!files_queue.empty()) {
+                    filename = files_queue.back();
+                    files_queue.pop_back();
+                }
+            }
+            if (std::filesystem::exists(std::filesystem::path(filename)) && is_regular_file(std::filesystem::path(filename))) {
+                FolderFileTerror(filename);
+            }
+            std::lock_guard<std::mutex> guard(mtx4);
+            if(border > 0) border--;
         }
     }
 }
@@ -98,6 +131,10 @@ void FolderTerrorist::Start(std::string folder_name) {
     for (auto &i: threads) {
         i.join();
     }
+}
+
+void FolderTerrorist::SetTheBorder(int border) {
+    this->border = border;
 }
 
 void FolderTerrorist::SignalsCatching() {
