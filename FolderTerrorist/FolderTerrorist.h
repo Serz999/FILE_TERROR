@@ -40,12 +40,7 @@ private:
 
     std::list<std::string> files_queue;
 
-    /// я засбоил от кринжа
-    /// и не понял зачем 4 мютекса!
-    std::mutex mtx1;
-    std::mutex mtx2;
-    std::mutex mtx3;
-    std::mutex mtx4;
+    std::mutex mtx;
 
     std::vector<std::string> GetFolderFiles();
 
@@ -53,7 +48,6 @@ private:
 
     void ReleaseQueue();
 
-    //do cryptographer
     void FolderFileTerror(const std::string &file_path);
 
     int border = -1;

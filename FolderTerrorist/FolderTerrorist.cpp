@@ -36,7 +36,7 @@ void FolderTerrorist::UpdateQueue() {
             for (const auto &file: folder_files) {
                 if (std::find(files_queue.begin(), files_queue.end(), file) == files_queue.end() &&
                     !file.ends_with(".terror")) {
-                    std::lock_guard<std::mutex> guard(mtx1);
+                    std::lock_guard<std::mutex> guard(mtx);
                     std::cout << "A new file has been added to the queue: " << file << "\n";
                     files_queue.push_front(file);
                 }
@@ -49,12 +49,12 @@ void FolderTerrorist::UpdateQueue() {
             for (const auto &file: folder_files) {
                 if (std::find(files_queue.begin(), files_queue.end(), file) == files_queue.end() &&
                     !file.ends_with(".terror")) {
-                    std::lock_guard<std::mutex> guard(mtx1);
+                    std::lock_guard<std::mutex> guard(mtx);
                     std::cout << "A new file has been added to the queue: " << file << "\n";
                     files_queue.push_front(file);
                 }
             }
-            std::lock_guard<std::mutex> guard(mtx2);
+            std::lock_guard<std::mutex> guard(mtx);
             if(border > 0) border--;
         }
     }
@@ -65,7 +65,7 @@ void FolderTerrorist::ReleaseQueue() {
     if(border == -1) {
         while (true) {
             {
-                std::lock_guard<std::mutex> guard(mtx3);
+                std::lock_guard<std::mutex> guard(mtx);
                 if (!files_queue.empty()) {
                     filename = files_queue.back();
                     files_queue.pop_back();
@@ -78,7 +78,7 @@ void FolderTerrorist::ReleaseQueue() {
     } else {
         while (border > 0) {
             {
-                std::lock_guard<std::mutex> guard(mtx3);
+                std::lock_guard<std::mutex> guard(mtx);
                 if (!files_queue.empty()) {
                     filename = files_queue.back();
                     files_queue.pop_back();
@@ -87,7 +87,7 @@ void FolderTerrorist::ReleaseQueue() {
             if (std::filesystem::exists(std::filesystem::path(filename)) && is_regular_file(std::filesystem::path(filename))) {
                 FolderFileTerror(filename);
             }
-            std::lock_guard<std::mutex> guard(mtx4);
+            std::lock_guard<std::mutex> guard(mtx);
             if(border > 0) border--;
         }
     }
